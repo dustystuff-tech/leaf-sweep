@@ -1397,14 +1397,33 @@ const artBg=mkc();
   for(let i=0;i<40;i++){x.fillStyle=LCOLS[Math.floor(hash(i,1,430)*LCOLS.length)];x.fillRect(Math.floor(hash(i,2,430)*176),Math.floor(hash(i,3,430)*316),2,1);}
 })();
 
-// 글자 → 픽셀 (도트 폰트 Galmuri 9/11/14 를 그 크기 그대로 그려 알파값으로 읽는다)
+// 글자 → 픽셀: 도트 폰트(Galmuri 9/11/14)를 8배로 그린 뒤, 도트 한 칸(8x8)의 가운데 4x4 투명도 평균이 절반을 넘으면 켜진 칸으로 읽는다.
+//
+// 왜 이렇게 하나: 이 글꼴은 '11px'라고 해도 도트 1칸이 정확히 1px 이 아니다. 1칸=1px 이 되는 글꼴 크기는
+// Galmuri9=10px, Galmuri11=12px, Galmuri14=15px 이다. 이름의 크기로 그리면 도트가 칸에 안 맞아 번지고,
+// 기기마다 번짐이 달라(특히 안드로이드) 1px 획이 끊기거나 사라졌다.
+// 그래서 'ㅣ' 를 크게 그려 획 굵기로 1칸의 크기를 직접 재고(calibFont), 정확히 칸당 8px 가 되는 크기로 그려서 읽는다.
 const rc=document.createElement('canvas');
 const rx=rc.getContext('2d',{willReadFrequently:true});
-// 글자 폭은 글자마다 반올림한 정수 합으로 센다 (도트 폰트에 없는 기호는 시스템 글꼴 폭이 소수라서,
-// 그대로 이어 그리면 뒤따르는 한글이 소수 위치에 그려져 가는 획이 흐려진다)
-const textW=s=>{let w=0;for(const ch of s)w+=Math.round(rx.measureText(ch).width);return w;};
+const SS=8;
+const CAL={};
+function calibFont(f){
+  if(CAL[f])return CAL[f];
+  if(!document.fonts.check(fontOf(f),'ㅣ'))return {k:f,size:f*SS,phaseY:0,mTop:0,ok:false};     // 글꼴이 아직 안 불러와졌으면 측정하지 않고(저장하지 않고) 임시값
+  const draw=(size,ox,oy,W,H)=>{rc.width=W;rc.height=H;rx.font=size+'px Galmuri'+f;rx.textBaseline='top';rx.fillStyle='#000';rx.fillText('ㅣ',ox,oy);return rx.getImageData(0,0,W,H).data;};
+  const S0=f*40,W0=S0*3,d0=draw(S0,S0,S0,W0,W0);
+  let y0=1e9,y1=-1;
+  for(let y=0;y<W0;y++){let a=0;for(let x=0;x<W0;x++)a+=d0[(y*W0+x)*4+3];if(a>0){if(y<y0)y0=y;if(y>y1)y1=y;}}
+  const ym=(y0+y1)>>1;let cov=0;for(let x=0;x<W0;x++)cov+=d0[(ym*W0+x)*4+3]/255;      // 가운데 행의 획 굵기 = 도트 1칸 (소수까지)
+  const k=Math.round(S0/cov*100)/100,size=k*SS,o=Math.round(size),Wd=Math.ceil(size*3),e=draw(size,o,o,Wd,Wd);
+  let top=1e9;for(let y=0;y<Wd;y++)for(let x=0;x<Wd;x++)if(e[(y*Wd+x)*4+3]>128&&y<top)top=y;
+  const rel=top-o,phaseY=((rel%SS)+SS)%SS,mTop=Math.floor((rel-phaseY)/SS);              // 격자가 그림 원점과 어긋난 정도(세로)
+  return CAL[f]={k,size,phaseY,mTop,ok:true};
+}
+// 글자 폭은 8배 크기로 재서 정수 칸으로 센다 (한글 한 글자 = 9px폰트 10칸, 11px폰트 12칸, 14px폰트 15칸. 글자 사이 1칸 포함)
+const textW=s=>{let w=0;for(const ch of s)w+=Math.round(rx.measureText(ch).width/SS);return w;};
 function wrapLines(text,maxW,f=11){
-  rx.font=fontOf(f);const lines=[];
+  const c=calibFont(f);rx.font=c.size+'px Galmuri'+f;const lines=[];
   text.split('\n').forEach(p=>{
     let cur='';
     for(const ch of p){
@@ -1419,15 +1438,21 @@ function wrapLines(text,maxW,f=11){
   return lines;
 }
 function rasterLine(line,maxW,f=11){
-  rc.width=Math.max(8,Math.ceil(maxW)+2);rc.height=f+4;
-  rx.font=fontOf(f);rx.textBaseline='top';rx.fillStyle='#000';
+  const c=calibFont(f);
+  rc.width=SS;rx.font=c.size+'px Galmuri'+f;                                              // (캔버스 크기를 바꾸면 상태가 초기화되므로 폭은 이 글꼴로 먼저 잰다)
   const xs=[0];
-  for(let j=0;j<line.length;j++){                       // 한 글자씩 정수 위치에 그린다
-    rx.fillText(line[j],xs[j],1);
-    xs.push(xs[j]+Math.round(rx.measureText(line[j]).width));
+  for(let j=0;j<line.length;j++)xs.push(xs[j]+Math.round(rx.measureText(line[j]).width/SS));
+  const w=xs[line.length],W=Math.max(8,Math.ceil(maxW)+2),H=f+4;
+  rc.width=W*SS;rc.height=(H+2)*SS;
+  rx.font=c.size+'px Galmuri'+f;rx.textBaseline='top';rx.fillStyle='#000';
+  const Y0=(1-c.mTop)*SS;                                                                 // 'ㅣ' 의 윗끝이 1번째 줄에 오도록
+  for(let j=0;j<line.length;j++)rx.fillText(line[j],xs[j]*SS,Y0);                         // 한 글자씩 칸에 맞춰 그린다
+  const d=rx.getImageData(0,0,rc.width,rc.height).data,stride=rc.width,px=[];
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+    let s=0;
+    for(let yy=2;yy<6;yy++){let o=((c.phaseY+y*SS+yy)*stride+x*SS+2)*4+3;for(let xx=0;xx<4;xx++,o+=4)s+=d[o];}
+    if(s>16*255*0.5)px.push([x,y]);
   }
-  const w=xs[line.length],d=rx.getImageData(0,0,rc.width,rc.height).data,px=[];
-  for(let y=0;y<rc.height;y++)for(let x=0;x<rc.width;x++)if(d[(y*rc.width+x)*4+3]>110)px.push([x,y]);
   return {px,w,xs};
 }
 // 한 장에 들어가는 가장 큰 크기를 고른다. 어느 크기도 안 들어가면 fits:false (줄이 너무 많은 경우)
