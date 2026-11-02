@@ -149,6 +149,8 @@ a.btn{text-decoration:none;text-align:center;display:block;width:max-content;mar
 
 #app[data-scene=box] #toast,#app[data-scene=artin] #toast{top:16%}
 
+.tapmsg{position:absolute;left:0;right:0;bottom:calc(var(--u)*22);text-align:center;font-size:calc(var(--u)*4.8);color:#fbe56a;pointer-events:none}
+
 </style>
 </head>
 <body>
@@ -159,6 +161,7 @@ a.btn{text-decoration:none;text-align:center;display:block;width:max-content;mar
   <section class="scr" id="s-title">
     <div class="title shadowtext"><h1>낙엽 쓸기</h1><p>경비원 아저씨의 가을</p></div>
     <div class="bottom"><button class="btn blink" id="b-start">시작하기</button></div>
+    <div class="tapmsg shadowtext" id="tapHint">화면을 터치하면 음악이 시작돼요</div>
     <div class="foot shadowtext">★ 한예종 경비원 아저씨 미담에서 영감을 받았어요</div>
   </section>
 
@@ -774,7 +777,13 @@ const SND=(function(){
     if(ctx)return true;
     try{
       const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return false;
+      try{if(navigator.audioSession)navigator.audioSession.type='playback';}catch(e){}      // iPhone 무음 스위치가 켜져 있어도 재생
       ctx=new AC();
+      ctx.onstatechange=()=>{
+        if(ctx.state==='running')document.dispatchEvent(new Event('snd-running'));          // 타이틀의 터치 안내를 숨긴다
+        else if(ctx.state==='interrupted'&&!document.hidden)ctx.resume().catch(()=>{});      // iOS 전화·알림 후 복구
+      };
+      if(ctx.state==='running')setTimeout(()=>document.dispatchEvent(new Event('snd-running')),0);   // 처음부터 재생이 허용된 환경
       master=ctx.createGain();master.gain.value=muted?0:0.9;master.connect(ctx.destination);
       sfxG=ctx.createGain();sfxG.gain.value=0.55;sfxG.connect(master);
       noiseBuf=ctx.createBuffer(1,ctx.sampleRate,ctx.sampleRate);
@@ -896,10 +905,15 @@ const SND=(function(){
     wantTrack=name;
     if(bgmOn)switchTrack(name);
   }
+  // 소리 잠금 해제: 폰 브라우저는 손가락을 '뗄 때'(touchend/click)부터 재생을 허용한다.
+  // 터치 시작(touchstart/pointerdown)에서 resume() 을 부르면 무시되므로, 뗄 때 부르고 결과를 확인한다.
   function resume(){
     if(!init())return;
-    if(ctx.state==='suspended')ctx.resume();
-    startBgm();
+    if(ctx.state!=='running'){
+      const p=ctx.resume();
+      if(p&&p.then)p.then(()=>{if(ctx.state==='running')startBgm();},()=>{});
+    }
+    startBgm();                                   // 아직 멈춰 있어도 예약은 해 둔다 (풀리는 순간 바로 연주)
   }
   function sfx(name,arg){
     if(muted||!ctx||!SFX[name])return;
@@ -911,7 +925,7 @@ const SND=(function(){
     if(!m)resume();
   }
   // 첫 터치/키 입력에서 소리를 시작한다 (브라우저는 사용자 입력 전 재생을 막는다)
-  ['pointerdown','keydown','touchstart'].forEach(ev=>document.addEventListener(ev,()=>{if(!ctx||ctx.state!=='running')resume();},{passive:true}));
+  ['touchend','pointerup','mouseup','click','keydown'].forEach(ev=>document.addEventListener(ev,()=>{if(!ctx||ctx.state!=='running')resume();},{passive:true,capture:true}));
   document.addEventListener('visibilitychange',()=>{if(!ctx)return;if(document.hidden)ctx.suspend();else if(!muted)ctx.resume();});
   return {sfx,setMuted,track,get muted(){return muted;},resume};
 })();
@@ -1794,6 +1808,8 @@ sndBtn.onclick=()=>{SND.setMuted(!SND.muted);drawSnd();};
 drawSnd();
 $('b-info').onclick=()=>$('o-credit').classList.add('on');
 $('b-creditclose').onclick=()=>$('o-credit').classList.remove('on');
+document.addEventListener('snd-running',()=>{$('tapHint').style.display='none';});   // 소리가 켜지면 터치 안내를 숨긴다
+if(SND.muted)$('tapHint').style.display='none';
 document.addEventListener('click',e=>{                // 모든 버튼에 짧은 클릭음 (쓸기 버튼은 제외)
   const b=e.target.closest&&e.target.closest('button,a.btn');
   if(b&&!b.disabled&&b.id!=='sweepBtn')SND.sfx('click');
