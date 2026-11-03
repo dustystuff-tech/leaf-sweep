@@ -329,9 +329,9 @@ a.btn{text-decoration:none;text-align:center;display:block;width:max-content;mar
         <p>낙엽 밟는 소리: 「LSMSE1103_낙엽 밟는 소리」 © 한국저작권위원회, <a href="https://creativecommons.org/licenses/by/4.0/deed.ko" target="_blank" rel="noopener noreferrer">CC BY 4.0</a> (공유마당). 일부 구간을 잘라 음량을 조정하는 등 편집했어요.</p>
       </div>
       <div id="pane-maker" style="display:none">
-        <p>안녕하세요. 저는 교보문고 마케팅팀 팀장입니다.</p>
-        <p>요즘 마케팅은 기술이 반이라서 매일 새로운 것을 배워야 하는지라, 바이브 코딩도 한번 시도해 봤어요. 완성도가 떨어지는 것은 제 실력 탓입니다. 더 배울게요.</p>
-        <p>가을은 독서의 계절! 이 게임이 여러분께 1초라도 즐거움을 드렸다면, 제철 마케팅으로 유명한 교보문고에 방문하셔서 한번 둘러봐 주신다면 감사하겠습니다.</p>
+        <p>안녕하세요! 저는 교보문고 마케팅팀 팀장이에요.</p>
+        <p>요즘 마케팅은 기술이 반이라서 매일 새로운 것을 배워야 해요. 그래서 바이브 코딩도 공부하고 있어요. 완성도가 떨어지는 것은 제 실력 탓이에요. 더 배울게요.</p>
+        <p>가을은 독서의 계절이죠? 이 게임이 여러분께 1초라도 즐거움을 드렸다면, 제철 마케팅으로 유명한 교보문고에 한번 방문해 보시면 어떨까요? 여러분의 가을이 더 풍성해질 거예요.</p>
       </div>
       <div class="linkrow">
         <a class="btn small" href="https://www.kyobobook.co.kr/" target="_blank" rel="noopener noreferrer">교보문고 구경하기 ↗</a>
@@ -1771,7 +1771,7 @@ function go(s){
   document.querySelectorAll('.ov').forEach(e=>e.classList.remove('on'));
   paused=false;pick=null;fx.length=0;
   if(s==='name'){const inp=$('nameInp');inp.value=playerName;$('nameErr').textContent='';}
-  if(s==='menu'){$('hello').textContent=playerName+'님, 안녕하세요!';menuFrom=pendingMenuFrom;pendingMenuFrom=null;$('b-menuclose').style.display=menuFrom?'block':'none';$('b-endagain').style.display=Object.values(SETS).some(S=>S.got.size>=S.total)?'':'none';}
+  if(s==='menu'){$('hello').textContent='힐링 게임을 골라보세요!';menuFrom=pendingMenuFrom;pendingMenuFrom=null;$('b-menuclose').style.display=menuFrom?'block':'none';$('b-endagain').style.display=Object.values(SETS).some(S=>S.got.size>=S.total)?'':'none';}
   if(s==='play'){$('hudName').textContent=playerName;updateHud();
     const st=playMode==='stomp';$('sweepBtn').textContent=st?'차기':'쓸기';$('hint').textContent=st?'차기 버튼으로 낙엽을 차요!':'쓸기 버튼으로 주워요!';
     toast(st?'방향키로 걷고 차기 버튼으로 낙엽을 차 보세요!':got.size>=TOTAL?'모두 모았어요! 자유롭게 쓸어보세요':SET.key==='leaf'?'반짝이는 낙엽을 찾아 쓸어서 주워요!':'반짝이는 열매를 찾아 쓸어서 주워요!');}
